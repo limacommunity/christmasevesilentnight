@@ -15,19 +15,40 @@
     color: #fff;
     text-align: center;
     padding: 20px;
+    margin: 0;
   }
 
-  #primary-container {
+  h2 {
     margin-bottom: 20px;
   }
 
+  /* Responsive video container */
+  .video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+  }
+
+  .video-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
   button {
-    padding: 10px 18px;
-    margin: 5px;
-    font-size: 16px;
+    padding: 12px 20px;
+    margin: 8px;
+    font-size: 18px;
     cursor: pointer;
     border: none;
     border-radius: 6px;
+    width: 180px;
+    max-width: 80%;
   }
 
   #playPauseBtn {
@@ -42,7 +63,9 @@
 
   /* Modal */
   .modal {
-    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
     position: fixed;
     z-index: 9999;
     left: 0;
@@ -50,25 +73,70 @@
     width: 100%;
     height: 100%;
     background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+  }
+
+  .modal.show {
+    opacity: 1;
+    pointer-events: auto;
   }
 
   .modal-content {
     position: relative;
-    margin: 4% auto;
-    width: 80%;
+    width: 100%;
     max-width: 1000px;
     background: #000;
-    padding: 20px;
+    padding: 10px;
     border-radius: 8px;
   }
 
   .close {
     position: absolute;
-    top: 10px;
-    right: 20px;
+    top: 8px;
+    right: 16px;
     font-size: 32px;
     color: white;
     cursor: pointer;
+  }
+
+  /* Spinner */
+  .spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border: 6px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    z-index: 20000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  .spinner.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  @keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
+
+  /* Responsive tweaks */
+  @media (max-width: 600px) {
+    button {
+      font-size: 16px;
+      padding: 10px 16px;
+    }
+    .close {
+      font-size: 28px;
+    }
   }
 </style>
 </head>
@@ -78,12 +146,10 @@
 <h2>Vimeo Player with 360 Modal Sync</h2>
 
 <!-- Primary Video -->
-<div id="primary-container">
+<div class="video-wrapper">
   <iframe
     id="primary-video"
     src="https://player.vimeo.com/video/1148671786?h=000000&api=1&player_id=primary-video"
-    width="640"
-    height="360"
     frameborder="0"
     allow="autoplay; fullscreen"
     allowfullscreen>
@@ -91,7 +157,7 @@
 </div>
 
 <!-- Controls -->
-<button id="playPauseBtn">Play/Pause</button>
+<button id="playPauseBtn">Play</button>
 <button id="open360Btn">Full 360 View</button>
 
 <!-- Modal -->
@@ -99,16 +165,17 @@
   <div class="modal-content">
     <span id="closeModal" class="close">&times;</span>
 
-    <!-- Secondary 360 Video -->
-    <iframe
-      id="secondary-video"
-      src="https://player.vimeo.com/video/1141863363?h=000000&api=1&player_id=secondary-video"
-      width="800"
-      height="450"
-      frameborder="0"
-      allow="autoplay; fullscreen"
-      allowfullscreen>
-    </iframe>
+    <div class="video-wrapper">
+      <div id="spinner" class="spinner"></div>
+
+      <iframe
+        id="secondary-video"
+        src="https://player.vimeo.com/video/1141863363?h=000000&api=1&player_id=secondary-video"
+        frameborder="0"
+        allow="autoplay; fullscreen"
+        allowfullscreen>
+      </iframe>
+    </div>
   </div>
 </div>
 
@@ -122,6 +189,16 @@ const playPauseBtn = document.getElementById("playPauseBtn");
 const open360Btn = document.getElementById("open360Btn");
 const modal = document.getElementById("modal");
 const closeModal = document.getElementById("closeModal");
+const spinner = document.getElementById("spinner");
+
+// Update button text based on play state
+primaryPlayer.on("play", () => {
+  playPauseBtn.textContent = "Pause";
+});
+
+primaryPlayer.on("pause", () => {
+  playPauseBtn.textContent = "Play";
+});
 
 // Play/Pause toggle
 playPauseBtn.addEventListener("click", async () => {
@@ -131,32 +208,31 @@ playPauseBtn.addEventListener("click", async () => {
 
 // Open 360 modal
 open360Btn.addEventListener("click", async () => {
-  const currentTime = await primaryPlayer.getCurrentTime();
+  spinner.classList.remove("hidden"); // show spinner
 
-  // Pause primary
+  const currentTime = await primaryPlayer.getCurrentTime();
   primaryPlayer.pause();
 
-  // Sync secondary video
   await secondaryPlayer.setCurrentTime(currentTime);
 
-  // Show modal
-  modal.style.display = "block";
-
-  // Play 360 video
+  modal.classList.add("show");
   secondaryPlayer.play();
+});
+
+// Hide spinner when 360 video starts
+secondaryPlayer.on("play", () => {
+  setTimeout(() => spinner.classList.add("hidden"), 300);
 });
 
 // Close modal
 closeModal.addEventListener("click", async () => {
-  modal.style.display = "none";
+  modal.classList.remove("show");
 
-  // Get where the 360 video ended
+  spinner.classList.remove("hidden"); // reset spinner
+
   const endTime = await secondaryPlayer.getCurrentTime();
-
-  // Stop 360 video
   secondaryPlayer.pause();
 
-  // Resume primary at same time
   await primaryPlayer.setCurrentTime(endTime);
   primaryPlayer.play();
 });
