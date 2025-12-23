@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360 Experience - Stable Sync</title>
+    <title>360 Experience - Sync Fixed</title>
     <style>
         :root { --vimeo-blue: #00adef; --bg-dark: #0a0a0a; }
         body {
@@ -15,14 +15,28 @@
         .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; }
         iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
         #slave-iframe { position: absolute; left: -9999px; width: 300px; height: 150px; }
-        .controls { margin-top: 30px; display: flex; gap: 20px; }
+        
+        .controls { margin-top: 30px; display: flex; gap: 20px; flex-direction: column; align-items: center; }
+        .btn-row { display: flex; gap: 15px; }
+        
         button {
             padding: 18px 35px; border-radius: 50px; font-weight: bold;
             cursor: pointer; text-transform: uppercase; border: none; transition: 0.2s;
         }
         #playBtn { background: var(--vimeo-blue); color: white; min-width: 220px; }
         #view360Btn { background: #fff; color: #000; }
-        #status { margin-top: 15px; font-size: 12px; color: #00adef; font-weight: bold; }
+        
+        /* The Emergency Unmute Button */
+        #unmuteBtn { 
+            background: #ff3b30; color: white; display: none; margin-top: 15px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
@@ -36,10 +50,12 @@
     <iframe id="slave-iframe" src="https://player.vimeo.com/video/1141863363?api=1&muted=1" allow="autoplay; fullscreen; vr"></iframe>
 
     <div class="controls">
-        <button id="playBtn">Enable Audio & Play</button>
-        <button id="view360Btn">Full 360 View</button>
+        <div class="btn-row">
+            <button id="playBtn">Start Experience</button>
+            <button id="view360Btn">Full 360 View</button>
+        </div>
+        <button id="unmuteBtn">Click for Sound</button>
     </div>
-    <div id="status">READY</div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
@@ -47,53 +63,37 @@
         const slave = new Vimeo.Player(document.getElementById('slave-iframe'));
         const playBtn = document.getElementById('playBtn');
         const view360Btn = document.getElementById('view360Btn');
-        const status = document.getElementById('status');
+        const unmuteBtn = document.getElementById('unmuteBtn');
 
-        let isStarted = false;
-
+        // 1. Initial Play Trigger
         playBtn.onclick = function() {
-            if (!isStarted) {
-                // THE KEY: Unmute first, then play. 
-                // The browser sees "Unmute" as a valid intent for an already-loaded stream.
-                master.setMuted(false);
-                master.setVolume(1);
-                
-                master.play();
-                slave.play();
-                
+            // We tell both to play. Since they are muted, the browser MUST allow it.
+            master.play();
+            slave.play();
+            
+            // Now we try to unmute immediately
+            master.setMuted(false).then(() => {
+                // If this succeeds, audio is on.
+                unmuteBtn.style.display = 'none';
                 playBtn.innerText = "Pause Both";
-                status.innerText = "PLAYING (AUDIO ENABLED)";
-                isStarted = true;
-            } else {
-                master.getPaused().then(paused => {
-                    if (paused) {
-                        master.play();
-                        slave.play();
-                        playBtn.innerText = "Pause Both";
-                        status.innerText = "PLAYING";
-                    } else {
-                        master.pause();
-                        slave.pause();
-                        playBtn.innerText = "Resume Both";
-                        status.innerText = "PAUSED";
-                    }
-                });
-            }
+            }).catch(() => {
+                // If it fails, the browser blocked audio. Show the red button.
+                unmuteBtn.style.display = 'block';
+            });
         };
 
-        // Sync Slave to Master UI clicks
-        master.on('play', function() {
-            slave.play();
-            isStarted = true;
-            playBtn.innerText = "Pause Both";
-        });
+        // 2. The Manual Unmute (Browser-Approved Gesture)
+        unmuteBtn.onclick = function() {
+            master.setMuted(false);
+            master.setVolume(1);
+            unmuteBtn.style.display = 'none';
+        };
 
-        master.on('pause', function() {
-            slave.pause();
-            playBtn.innerText = "Resume Both";
-        });
+        // 3. UI Sync
+        master.on('play', () => { slave.play(); playBtn.innerText = "Pause Both"; });
+        master.on('pause', () => { slave.pause(); playBtn.innerText = "Resume Both"; });
 
-        // 360 Fullscreen
+        // 4. Full 360 Logic
         view360Btn.onclick = function() {
             master.getCurrentTime().then(t => {
                 slave.setCurrentTime(t);
@@ -103,12 +103,10 @@
             });
         };
 
-        // Precision Sync
-        master.on('timeupdate', function(data) {
+        // 5. Background Time Sync
+        master.on('timeupdate', (data) => {
             slave.getCurrentTime().then(sTime => {
-                if (Math.abs(data.seconds - sTime) > 0.4) {
-                    slave.setCurrentTime(data.seconds);
-                }
+                if (Math.abs(data.seconds - sTime) > 0.4) slave.setCurrentTime(data.seconds);
             });
         });
     </script>
