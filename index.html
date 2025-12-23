@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Video Test</title>
+    <title>Master Video Sync Test</title>
     <style>
         body {
             background-color: #111;
@@ -24,17 +24,23 @@
             border: 2px solid #333;
         }
         .controls {
-            margin-top: 20px;
+            margin-top: 25px;
         }
         button {
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 15px 40px;
+            font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             background: #00adef;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 50px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #008cc2;
         }
     </style>
 </head>
@@ -43,42 +49,50 @@
     <div id="player-container"></div>
 
     <div class="controls">
-        <button id="playBtn">CLICK TO START VIDEO</button>
+        <button id="masterBtn">Loading Video...</button>
     </div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
-        // Use the Container ID instead of an iframe to bypass iframe-nesting blocks
         const options = {
             id: 1148671786,
-            width: 800,
-            responsive: true
+            responsive: true,
+            autoplay: false
         };
 
         const player = new Vimeo.Player('player-container', options);
-        const playBtn = document.getElementById('playBtn');
+        const masterBtn = document.getElementById('masterBtn');
 
-        playBtn.addEventListener('click', function() {
-            // First, we attempt a clean play
-            player.play().then(function() {
-                console.log('Video is playing!');
-            }).catch(function(error) {
-                // If the browser blocks it, we force it to play muted.
-                // This is the "Nuclear Option" that always works.
-                console.log('Playback blocked, forcing muted start...');
-                player.setMuted(true);
-                player.play();
-                playBtn.innerText = "UNMUTE VIDEO";
+        // Set initial button state once player is ready
+        player.ready().then(() => {
+            masterBtn.innerText = "Start Video";
+        });
+
+        // SINGLE TOGGLE LOGIC
+        masterBtn.onclick = function() {
+            player.getPaused().then(function(paused) {
+                if (paused) {
+                    // If paused, attempt to play
+                    player.play().catch(function(error) {
+                        // Fallback for strict browsers
+                        player.setMuted(true);
+                        player.play();
+                    });
+                } else {
+                    // If playing, pause it
+                    player.pause();
+                }
             });
+        };
+
+        // UI SYNC: Listen to the player itself
+        // This ensures the button updates even if you click the video frame
+        player.on('play', function() {
+            masterBtn.innerText = "Pause Video";
         });
 
-        // If the user unblocks the video manually, update the button
-        player.on('play', function() {
-            playBtn.innerText = "PAUSE VIDEO";
-        });
-        
         player.on('pause', function() {
-            playBtn.innerText = "RESUME VIDEO";
+            masterBtn.innerText = "Resume Video";
         });
     </script>
 </body>
