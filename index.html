@@ -3,97 +3,136 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Master Video Sync Test</title>
+    <title>360 Cinematic Sync</title>
     <style>
+        :root { --vimeo-blue: #00adef; --bg-dark: #0f0f0f; }
         body {
-            background-color: #111;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            font-family: sans-serif;
+            background-color: var(--bg-dark); color: white;
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-height: 100vh; margin: 0; font-family: sans-serif;
         }
+
+        /* Master Container */
         #player-container {
-            width: 80%;
-            max-width: 800px;
-            aspect-ratio: 16 / 9;
-            background: #000;
-            border: 2px solid #333;
+            width: 85%; max-width: 850px; aspect-ratio: 16 / 9;
+            background: #000; border-radius: 8px; overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
-        .controls {
-            margin-top: 25px;
+
+        /* Modal / Popup Styles */
+        #slave-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.98);
+            display: none; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 1000;
         }
+        .modal-content { width: 90%; max-width: 1100px; position: relative; }
+        .close-btn {
+            position: absolute; top: -50px; right: 0;
+            background: #ff3b30; color: white; border: none;
+            padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;
+        }
+
+        /* Off-screen Slave (Keeps it "warm" for instant loading) */
+        #slave-container { position: absolute; left: -9999px; width: 640px; height: 360px; }
+        #slave-modal #slave-container { position: static; width: 100%; height: auto; aspect-ratio: 16/9; }
+
+        .controls { margin-top: 30px; display: flex; gap: 15px; }
         button {
-            padding: 15px 40px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            background: #00adef;
-            color: white;
-            border: none;
-            border-radius: 50px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: background 0.2s;
+            padding: 16px 32px; font-size: 14px; font-weight: bold;
+            cursor: pointer; border: none; border-radius: 50px;
+            text-transform: uppercase; transition: 0.2s;
         }
-        button:hover {
-            background: #008cc2;
-        }
+        #masterBtn { background: var(--vimeo-blue); color: white; min-width: 180px; }
+        #view360Btn { background: white; color: black; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
     </style>
 </head>
 <body>
 
     <div id="player-container"></div>
 
+    <div id="slave-modal">
+        <div class="modal-content" id="modal-content-area">
+            <button class="close-btn" id="closeBtn">CLOSE 360 VIEW</button>
+            </div>
+    </div>
+
+    <div id="slave-storage">
+        <div id="slave-container"></div>
+    </div>
+
     <div class="controls">
-        <button id="masterBtn">Loading Video...</button>
+        <button id="masterBtn" disabled>Loading...</button>
+        <button id="view360Btn" disabled>Full 360 View</button>
     </div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
-        const options = {
-            id: 1148671786,
-            responsive: true,
-            autoplay: false
-        };
-
-        const player = new Vimeo.Player('player-container', options);
+        const master = new Vimeo.Player('player-container', { id: 1148671786, responsive: true });
+        const slave = new Vimeo.Player('slave-container', { id: 1141863363, responsive: true, muted: true });
+        
         const masterBtn = document.getElementById('masterBtn');
+        const view360Btn = document.getElementById('view360Btn');
+        const slaveModal = document.getElementById('slave-modal');
+        const slaveContainer = document.getElementById('slave-container');
+        const modalArea = document.getElementById('modal-content-area');
+        const slaveStorage = document.getElementById('slave-storage');
 
-        // Set initial button state once player is ready
-        player.ready().then(() => {
-            masterBtn.innerText = "Start Video";
+        // Init
+        Promise.all([master.ready(), slave.ready()]).then(() => {
+            masterBtn.disabled = false;
+            view360Btn.disabled = false;
+            masterBtn.innerText = "Start Experience";
         });
 
-        // SINGLE TOGGLE LOGIC
+        // 1. MASTER BUTTON TOGGLE
         masterBtn.onclick = function() {
-            player.getPaused().then(function(paused) {
+            master.getPaused().then(paused => {
                 if (paused) {
-                    // If paused, attempt to play
-                    player.play().catch(function(error) {
-                        // Fallback for strict browsers
-                        player.setMuted(true);
-                        player.play();
-                    });
+                    master.play().catch(() => { master.setMuted(true); master.play(); });
                 } else {
-                    // If playing, pause it
-                    player.pause();
+                    master.pause();
                 }
             });
         };
 
-        // UI SYNC: Listen to the player itself
-        // This ensures the button updates even if you click the video frame
-        player.on('play', function() {
-            masterBtn.innerText = "Pause Video";
+        // 2. HEARTBEAT SYNC (Slave follows Master)
+        master.on('play', () => { 
+            slave.play(); 
+            masterBtn.innerText = "Pause Experience";
+        });
+        
+        master.on('pause', () => { 
+            slave.pause(); 
+            masterBtn.innerText = "Resume Experience";
         });
 
-        player.on('pause', function() {
-            masterBtn.innerText = "Resume Video";
+        master.on('timeupdate', (data) => {
+            slave.getCurrentTime().then(sTime => {
+                if (Math.abs(data.seconds - sTime) > 0.5) {
+                    slave.setCurrentTime(data.seconds);
+                }
+            });
         });
+
+        // 3. MODAL LOGIC (The "Time-Snap" Transition)
+        view360Btn.onclick = function() {
+            master.getCurrentTime().then(t => {
+                // Snap slave to master's time
+                slave.setCurrentTime(t).then(() => {
+                    // Move the actual player element into the modal
+                    modalArea.appendChild(slaveContainer);
+                    slaveModal.style.display = 'flex';
+                });
+            });
+        };
+
+        document.getElementById('closeBtn').onclick = function() {
+            // Move player back to storage and hide modal
+            slaveStorage.appendChild(slaveContainer);
+            slaveModal.style.display = 'none';
+        };
     </script>
 </body>
 </html>
