@@ -1,230 +1,280 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Global Volume + Active Audio Demo</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vimeo Sync Player + 360 Modal</title>
+
+<script src="https://player.vimeo.com/api/player.js"></script>
+
 <style>
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; padding: 20px; }
-  .controls { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
-  .player { margin:12px 0; }
-  .visually-hidden { position:absolute; left:-10000px; top:auto; width:1px; height:1px; overflow:hidden; }
-  .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); }
-  .modal .sheet { background:#fff; padding:20px; border-radius:8px; width:90%; max-width:480px; }
-  button { cursor:pointer; }
+  body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+  }
+
+  h2 { margin-bottom: 20px; }
+
+  /* Responsive video container */
+  .video-wrapper {
+    position: relative;
+    padding-bottom: 56.25%;
+    height: 0;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto 20px auto;
+  }
+
+  .video-wrapper iframe {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Controls row */
+  .controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+
+  button {
+    padding: 12px 20px;
+    font-size: 18px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    width: 180px;
+    max-width: 80%;
+  }
+
+  #playPauseBtn { background: #4caf50; color: white; }
+  #open360Btn { background: #2196f3; color: white; }
+
+  /* Volume slider */
+  .volume-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type="range"] {
+    width: 140px;
+    cursor: pointer;
+  }
+
+  /* Modal */
+  .modal {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.4s ease;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    z-index: 99999;
+  }
+
+  .modal.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .modal.fade-out {
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .modal-content {
+    position: relative;
+    width: 100%;
+    max-width: 1000px;
+    background: #000;
+    padding: 10px;
+    border-radius: 8px;
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .close, .return-btn {
+    background: rgba(255,255,255,0.1);
+    color: white;
+    border: none;
+    padding: 8px 14px;
+    font-size: 18px;
+    cursor: pointer;
+    border-radius: 6px;
+  }
+
+  .close { font-size: 26px; }
+
+  /* Spinner */
+  .spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border: 6px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    z-index: 20000;
+    opacity: 1;
+    transition: opacity 0.3s ease;
+  }
+
+  .spinner.hidden {
+    opacity: 0;
+  }
+
+  @keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+  }
 </style>
 </head>
+
 <body>
 
-<h3>Global volume with active-window audio</h3>
+<h2>Vimeo Player with 360 Modal Sync</h2>
 
-<div class="controls" role="region" aria-label="Global audio controls">
-  <label for="volumeRange">Volume</label>
-  <input id="volumeRange" type="range" min="0" max="100" value="50" aria-label="Volume" />
-  <button id="muteBtn" aria-pressed="false" aria-label="Mute toggle">🔊</button>
-  <button id="openModalBtn" aria-haspopup="dialog">Open modal player</button>
+<div class="video-wrapper">
+  <iframe
+    id="primary-video"
+    src="https://player.vimeo.com/video/1148671786?h=000000&api=1&player_id=primary-video"
+    allow="autoplay; fullscreen"
+    allowfullscreen>
+  </iframe>
 </div>
 
-<div class="player" id="player1">
-  <strong>Player 1</strong>
-  <div>
-    <button class="playBtn" data-target="audio1">Play</button>
-    <button class="pauseBtn" data-target="audio1">Pause</button>
-  </div>
-  <audio id="audio1" src="https://www.w3schools.com/html/horse.mp3" preload="none"></audio>
-</div>
+<!-- Controls -->
+<div class="controls">
+  <button id="playPauseBtn">Play</button>
+  <button id="open360Btn">Full 360 View</button>
 
-<div class="player" id="player2">
-  <strong>Player 2</strong>
-  <div>
-    <button class="playBtn" data-target="audio2">Play</button>
-    <button class="pauseBtn" data-target="audio2">Pause</button>
+  <div class="volume-container">
+    <label for="volumeSlider">Volume</label>
+    <input id="volumeSlider" type="range" min="0" max="100" value="50">
   </div>
-  <audio id="audio2" src="https://www.w3schools.com/html/horse.ogg" preload="none"></audio>
 </div>
 
 <!-- Modal -->
-<div id="modal" class="modal" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="sheet">
-    <h4>Modal Player</h4>
-    <div>
-      <button id="modalPlayBtn">Play</button>
-      <button id="modalPauseBtn">Pause</button>
-      <button id="closeModalBtn">Close</button>
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <button id="returnBtn" class="return-btn">Return</button>
+      <button id="closeModal" class="close">&times;</button>
     </div>
-    <audio id="modalAudio" src="https://www.w3schools.com/html/horse.mp3" preload="none"></audio>
+
+    <div class="video-wrapper">
+      <div id="spinner" class="spinner"></div>
+
+      <iframe
+        id="secondary-video"
+        src="https://player.vimeo.com/video/1141863363?h=000000&api=1&player_id=secondary-video"
+        allow="autoplay; fullscreen"
+        allowfullscreen>
+      </iframe>
+    </div>
   </div>
 </div>
 
 <script>
-/* Single-copy paste script implementing:
-   - global volume slider (default 50%)
-   - activeAudio concept: only active audio is audible; others paused and muted
-   - persistence via localStorage
-   - mute toggle and modal sync
-*/
+const primaryPlayer = new Vimeo.Player("primary-video");
+const secondaryPlayer = new Vimeo.Player("secondary-video");
 
-const AUDIO_KEY = 'siteVolume';
-let globalVolume = (localStorage.getItem(AUDIO_KEY) !== null)
-  ? Number(localStorage.getItem(AUDIO_KEY)) / 100
-  : 0.5;
-let activeAudio = null;
-const volumeRange = document.getElementById('volumeRange');
-const muteBtn = document.getElementById('muteBtn');
-const openModalBtn = document.getElementById('openModalBtn');
-const modal = document.getElementById('modal');
-const closeModalBtn = document.getElementById('closeModalBtn');
-const modalAudio = document.getElementById('modalAudio');
+const playPauseBtn = document.getElementById("playPauseBtn");
+const open360Btn = document.getElementById("open360Btn");
+const modal = document.getElementById("modal");
+const closeModal = document.getElementById("closeModal");
+const returnBtn = document.getElementById("returnBtn");
+const spinner = document.getElementById("spinner");
+const volumeSlider = document.getElementById("volumeSlider");
 
-// Initialize UI
-volumeRange.value = Math.round(globalVolume * 100);
-updateMuteButton();
+/* Set initial volume to 50% */
+primaryPlayer.setVolume(0.5);
+secondaryPlayer.setVolume(0.5);
 
-// Apply volume to all audio elements
-function applyVolumeToAll() {
-  document.querySelectorAll('audio, video').forEach(el => {
-    el.volume = globalVolume;
-  });
-}
-applyVolumeToAll();
-
-// Set global volume percent (0-100)
-function setGlobalVolumePercent(percent) {
-  globalVolume = Math.max(0, Math.min(100, Number(percent))) / 100;
-  localStorage.setItem(AUDIO_KEY, Math.round(globalVolume * 100));
-  volumeRange.value = Math.round(globalVolume * 100);
-  applyVolumeToAll();
-  // If there's an active audio, ensure it's unmuted; others remain muted/paused
-  if (activeAudio) {
-    activeAudio.muted = globalVolume === 0;
-  }
-  updateMuteButton();
-}
-
-// Update mute button aria state and icon
-function updateMuteButton() {
-  const pressed = globalVolume === 0;
-  muteBtn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-  muteBtn.textContent = pressed ? '🔈' : '🔊';
-}
-
-// Make an element the active audio
-function setActiveAudio(el) {
-  if (!el || !(el instanceof HTMLMediaElement)) return;
-  if (activeAudio === el) return;
-  // Pause and mute previous active
-  if (activeAudio && !activeAudio.paused) {
-    activeAudio.pause();
-  }
-  document.querySelectorAll('audio, video').forEach(a => {
-    if (a !== el) {
-      try { a.pause(); } catch(e) {}
-      a.muted = true;
-    }
-  });
-  activeAudio = el;
-  activeAudio.volume = globalVolume;
-  activeAudio.muted = globalVolume === 0;
-}
-
-// Wire play/pause buttons for page players
-document.querySelectorAll('.playBtn').forEach(btn => {
-  btn.addEventListener('click', async (e) => {
-    const id = btn.dataset.target;
-    const audio = document.getElementById(id);
-    if (!audio) return;
-    setActiveAudio(audio);
-    try {
-      await audio.play();
-    } catch (err) {
-      // Play may be blocked if not a user gesture; this is a user gesture so usually fine
-      console.warn('Play failed', err);
-    }
-  });
-});
-document.querySelectorAll('.pauseBtn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    const id = btn.dataset.target;
-    const audio = document.getElementById(id);
-    if (!audio) return;
-    audio.pause();
-    if (activeAudio === audio) activeAudio = null;
-  });
+/* Shared volume control */
+volumeSlider.addEventListener("input", () => {
+  const vol = volumeSlider.value / 100;
+  primaryPlayer.setVolume(vol);
+  secondaryPlayer.setVolume(vol);
 });
 
-// Modal open/close and modal player wiring
-openModalBtn.addEventListener('click', () => {
-  modal.style.display = 'flex';
-  modal.setAttribute('aria-hidden', 'false');
-  // Ensure modal audio uses current global volume and becomes active when played
-  modalAudio.volume = globalVolume;
-  modalAudio.muted = globalVolume === 0;
-  // Optionally auto-focus a control
-  document.getElementById('modalPlayBtn').focus();
-});
-closeModalBtn.addEventListener('click', () => {
-  // Pause modal audio and close
-  try { modalAudio.pause(); } catch {}
-  if (activeAudio === modalAudio) activeAudio = null;
-  modal.style.display = 'none';
-  modal.setAttribute('aria-hidden', 'true');
-});
+/* Update button text */
+primaryPlayer.on("play", () => playPauseBtn.textContent = "Pause");
+primaryPlayer.on("pause", () => playPauseBtn.textContent = "Play");
 
-// Modal play/pause
-document.getElementById('modalPlayBtn').addEventListener('click', async () => {
-  setActiveAudio(modalAudio);
-  try {
-    await modalAudio.play();
-  } catch (err) {
-    console.warn('Modal play blocked', err);
-  }
-});
-document.getElementById('modalPauseBtn').addEventListener('click', () => {
-  modalAudio.pause();
-  if (activeAudio === modalAudio) activeAudio = null;
-});
-
-// Volume slider input
-volumeRange.addEventListener('input', (e) => {
-  setGlobalVolumePercent(e.target.value);
-});
-
-// Mute toggle
-muteBtn.addEventListener('click', () => {
-  if (globalVolume === 0) {
-    // restore to 50% when unmuting (sensible default)
-    setGlobalVolumePercent(50);
+/* Play/Pause toggle */
+playPauseBtn.addEventListener("click", async () => {
+  const paused = await primaryPlayer.getPaused();
+  if (paused) {
+    primaryPlayer.play();
   } else {
-    setGlobalVolumePercent(0);
+    primaryPlayer.pause();
   }
 });
 
-// When any audio element starts playing (e.g., user uses native controls), make it active
-document.querySelectorAll('audio').forEach(a => {
-  a.addEventListener('play', () => {
-    setActiveAudio(a);
-    // Pause others
-    document.querySelectorAll('audio').forEach(other => {
-      if (other !== a) {
-        try { other.pause(); } catch {}
-        other.muted = true;
-      }
-    });
-  });
-  a.addEventListener('ended', () => {
-    if (activeAudio === a) activeAudio = null;
-  });
+/* Open modal */
+open360Btn.addEventListener("click", async () => {
+  spinner.classList.remove("hidden");
+
+  const t = await primaryPlayer.getCurrentTime();
+  await primaryPlayer.pause();
+  await secondaryPlayer.setCurrentTime(t);
+
+  modal.classList.add("show");
+  secondaryPlayer.play();
 });
 
-// Visibility handling: pause active audio when tab hidden (optional)
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    if (activeAudio && !activeAudio.paused) activeAudio.pause();
-  }
+/* Hide spinner when 360 video starts */
+secondaryPlayer.on("play", () => {
+  setTimeout(() => spinner.classList.add("hidden"), 300);
 });
 
-// Initialize volumes on load (ensures any audio added later inherits)
-setGlobalVolumePercent(Math.round(globalVolume * 100));
+/* Fade-out close function */
+async function closeModalAction() {
+  modal.classList.remove("show");
+  modal.classList.add("fade-out");
+
+  spinner.classList.remove("hidden");
+
+  setTimeout(async () => {
+    modal.classList.remove("fade-out");
+
+    const t = await secondaryPlayer.getCurrentTime();
+    await secondaryPlayer.pause();
+    await primaryPlayer.setCurrentTime(t);
+    primaryPlayer.play();
+  }, 400);
+}
+
+/* Buttons that close modal */
+closeModal.addEventListener("click", closeModalAction);
+returnBtn.addEventListener("click", closeModalAction);
+
+/* ESC key */
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeModalAction();
+});
 </script>
+
 </body>
 </html>
