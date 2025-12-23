@@ -3,134 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinematic 360 Experience</title>
+    <title>Master Video Test</title>
     <style>
-        :root { --vimeo-blue: #00adef; --bg-dark: #0a0a0a; }
         body {
-            font-family: sans-serif; background-color: var(--bg-dark); color: white;
-            margin: 0; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 100vh; overflow: hidden;
+            background-color: #111;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: sans-serif;
         }
-
-        /* Master Player Style */
-        .master-wrapper {
-            width: 90%; max-width: 850px; background: #000;
-            border-radius: 12px; overflow: hidden; position: relative;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        #player-container {
+            width: 80%;
+            max-width: 800px;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            border: 2px solid #333;
         }
-        .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; }
-        iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-
-        /* Modal / Popup Styles */
-        #slave-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95);
-            display: none; flex-direction: column; align-items: center;
-            justify-content: center; z-index: 1000;
+        .controls {
+            margin-top: 20px;
         }
-        .modal-content { width: 95%; max-width: 1100px; position: relative; }
-        .close-btn {
-            position: absolute; top: -50px; right: 0;
-            background: white; color: black; border: none;
-            padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;
-        }
-
-        /* Controls */
-        .controls { margin-top: 30px; display: flex; gap: 20px; }
         button {
-            padding: 16px 32px; border-radius: 50px; font-weight: bold;
-            cursor: pointer; transition: 0.3s; text-transform: uppercase; border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            background: #00adef;
+            color: white;
+            border: none;
+            border-radius: 5px;
         }
-        #playBtn { background: var(--vimeo-blue); color: white; min-width: 160px; }
-        #open360 { background: white; color: black; }
-        button:hover { transform: scale(1.05); }
-        button:disabled { opacity: 0.3; }
     </style>
 </head>
 <body>
 
-    <div class="master-wrapper">
-        <div class="video-ratio">
-            <iframe id="master-iframe" src="https://player.vimeo.com/video/1148671786?api=1&muted=1" allow="autoplay; fullscreen"></iframe>
-        </div>
-    </div>
-
-    <div id="slave-modal">
-        <div class="modal-content">
-            <button class="close-btn" onclick="close360()">CLOSE & EXIT 360</button>
-            <div class="video-ratio">
-                <iframe id="slave-iframe" src="https://player.vimeo.com/video/1141863363?api=1&muted=1" allow="autoplay; fullscreen; vr"></iframe>
-            </div>
-        </div>
-    </div>
+    <div id="player-container"></div>
 
     <div class="controls">
-        <button id="playBtn" disabled>Synchronizing...</button>
-        <button id="open360" disabled>Launch 360 View</button>
+        <button id="playBtn">CLICK TO START VIDEO</button>
     </div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
-        const master = new Vimeo.Player(document.getElementById('master-iframe'));
-        const slave = new Vimeo.Player(document.getElementById('slave-iframe'));
-        const modal = document.getElementById('slave-modal');
+        // Use the Container ID instead of an iframe to bypass iframe-nesting blocks
+        const options = {
+            id: 1148671786,
+            width: 800,
+            responsive: true
+        };
+
+        const player = new Vimeo.Player('player-container', options);
         const playBtn = document.getElementById('playBtn');
-        const open360Btn = document.getElementById('open360');
 
-        let isPlaying = false;
-
-        Promise.all([master.ready(), slave.ready()]).then(() => {
-            playBtn.disabled = false;
-            open360Btn.disabled = false;
-            playBtn.innerText = "Start Experience";
-        });
-
-        // Main Play Logic
-        playBtn.onclick = function() {
-            if (!isPlaying) {
-                // Play first, then unmute. This is the most successful sequence.
-                master.play();
-                slave.play();
-                master.setMuted(false);
-                master.setVolume(1);
-                
-                playBtn.innerText = "Pause";
-                isPlaying = true;
-            } else {
-                master.pause();
-                slave.pause();
-                playBtn.innerText = "Start Experience";
-                isPlaying = false;
-            }
-        };
-
-        // Modal Controls
-        open360Btn.onclick = function() {
-            master.getCurrentTime().then(t => {
-                slave.setCurrentTime(t);
-                modal.style.display = 'flex';
-            });
-        };
-
-        function close360() {
-            slave.getCurrentTime().then(t => {
-                master.setCurrentTime(t);
-                modal.style.display = 'none';
-            });
-        }
-
-        // Sync Logic
-        master.on('timeupdate', (data) => {
-            slave.getCurrentTime().then(sTime => {
-                if (Math.abs(data.seconds - sTime) > 0.4) {
-                    slave.setCurrentTime(data.seconds);
-                }
+        playBtn.addEventListener('click', function() {
+            // First, we attempt a clean play
+            player.play().then(function() {
+                console.log('Video is playing!');
+            }).catch(function(error) {
+                // If the browser blocks it, we force it to play muted.
+                // This is the "Nuclear Option" that always works.
+                console.log('Playback blocked, forcing muted start...');
+                player.setMuted(true);
+                player.play();
+                playBtn.innerText = "UNMUTE VIDEO";
             });
         });
 
-        // Mirror Play/Pause
-        master.on('play', () => { slave.play(); isPlaying = true; });
-        master.on('pause', () => { slave.pause(); isPlaying = false; });
+        // If the user unblocks the video manually, update the button
+        player.on('play', function() {
+            playBtn.innerText = "PAUSE VIDEO";
+        });
+        
+        player.on('pause', function() {
+            playBtn.innerText = "RESUME VIDEO";
+        });
     </script>
 </body>
 </html>
