@@ -3,115 +3,127 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360 Sync Pro: Master & Slave</title>
+    <title>Cinematic 360 Experience</title>
     <style>
         :root {
             --vimeo-blue: #00adef;
             --bg-dark: #121212;
-            --panel-bg: #1e1e1e;
         }
 
         body {
             font-family: -apple-system, system-ui, sans-serif;
             background-color: var(--bg-dark);
-            color: #ffffff;
+            color: white;
             margin: 0;
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             min-height: 100vh;
             padding: 20px;
+            overflow: hidden;
         }
 
-        /* Loading Spinner Overlay */
-        #loader-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-dark);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 9999; transition: opacity 0.5s ease;
+        /* The Visible Master Player */
+        .master-wrapper {
+            width: 100%;
+            max-width: 960px;
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            position: relative;
         }
 
-        .spinner {
-            width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.1);
-            border-top: 5px solid var(--vimeo-blue); border-radius: 50%;
-            animation: spin 1s linear infinite; margin-bottom: 15px;
+        .video-ratio {
+            position: relative;
+            padding-bottom: 56.25%; /* 16:9 */
+            height: 0;
         }
 
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        .container { width: 100%; max-width: 850px; }
-
-        .player-card {
-            background: var(--panel-bg); padding: 15px; border-radius: 12px;
-            margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        iframe {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            border: none;
         }
 
-        .header-meta {
-            display: flex; justify-content: space-between; font-size: 11px;
-            text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin-bottom: 10px;
+        /* The Hidden Slave Player */
+        #slave-iframe {
+            position: fixed;
+            top: 0; left: 0;
+            width: 1px; height: 1px;
+            opacity: 0;
+            pointer-events: none;
+            z-index: -1;
         }
 
-        .video-container {
-            position: relative; padding-bottom: 56.25%; height: 0;
-            background: #000; border-radius: 6px; overflow: hidden;
+        /* Controls */
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 15px;
         }
 
-        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        button {
+            padding: 16px 32px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            font-size: 14px;
+            text-transform: uppercase;
+            border: none;
+        }
 
-        .main-controls { display: flex; justify-content: center; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+        #playBtn {
+            background: var(--vimeo-blue);
+            color: white;
+            min-width: 140px;
+        }
 
-        button { padding: 14px 28px; border-radius: 8px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.2s; font-size: 13px; }
+        #view360Btn {
+            background: white;
+            color: black;
+        }
 
-        #playPauseBtn { background: var(--vimeo-blue); color: white; border: none; min-width: 180px; }
-        #playPauseBtn:hover { background: #008cc2; transform: translateY(-2px); }
+        button:hover:not(:disabled) {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+        }
 
-        .fs-btn { background: transparent; color: #ccc; border: 1px solid #444; }
-        .fs-btn:hover { border-color: white; color: white; }
+        button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
 
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-
-        #status-msg { text-align: center; font-size: 12px; color: #ffab00; margin-top: 10px; height: 15px; }
+        #status-bar {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #666;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
-    <div id="loader-overlay">
-        <div class="spinner"></div>
-        <div id="load-text">Initializing Video Streams...</div>
+    <div class="master-wrapper">
+        <div class="video-ratio">
+            <iframe id="master-iframe" 
+                src="https://player.vimeo.com/video/1148671786?api=1&title=0&byline=0&portrait=0" 
+                allow="autoplay; fullscreen" allowfullscreen></iframe>
+        </div>
     </div>
 
-    <div class="container">
-        <div class="player-card">
-            <div class="header-meta">
-                <span>Master: Cinematic View (Standard)</span>
-                <span id="m-status">Connecting...</span>
-            </div>
-            <div class="video-container">
-                <iframe id="master-iframe" 
-                    src="https://player.vimeo.com/video/1148671786?api=1&muted=1&title=0&byline=0&portrait=0" 
-                    allow="autoplay; fullscreen" allowfullscreen></iframe>
-            </div>
-        </div>
+    <iframe id="slave-iframe" 
+        src="https://player.vimeo.com/video/1141863363?api=1&muted=1&title=0&byline=0&portrait=0" 
+        allow="autoplay; fullscreen; vr" allowfullscreen></iframe>
 
-        <div class="player-card">
-            <div class="header-meta">
-                <span>Slave: 360° Perspective (Muted)</span>
-                <span id="s-status">Connecting...</span>
-            </div>
-            <div class="video-container">
-                <iframe id="slave-iframe" 
-                    src="https://player.vimeo.com/video/1141863363?api=1&muted=1&title=0&byline=0&portrait=0" 
-                    allow="autoplay; fullscreen; vr" allowfullscreen></iframe>
-            </div>
-        </div>
-
-        <div class="main-controls">
-            <button id="playPauseBtn" disabled>Synchronizing...</button>
-            <button id="fsTop" class="fs-btn" disabled>Full Screen Master</button>
-            <button id="fsBottom" class="fs-btn" disabled>Full Screen Slave</button>
-        </div>
-        <div id="status-msg"></div>
+    <div class="controls">
+        <button id="playBtn" disabled>Loading...</button>
+        <button id="view360Btn" disabled>Full 360 View</button>
     </div>
+
+    <div id="status-bar">SYSTEM READY</div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
@@ -119,71 +131,67 @@
         const sIframe = document.getElementById('slave-iframe');
         const master = new Vimeo.Player(mIframe);
         const slave = new Vimeo.Player(sIframe);
-        const playBtn = document.getElementById('playPauseBtn');
-        const statusMsg = document.getElementById('status-msg');
-        const overlay = document.getElementById('loader-overlay');
+        const playBtn = document.getElementById('playBtn');
+        const view360Btn = document.getElementById('view360Btn');
 
         let isPlaying = false;
 
+        // Initialization
         Promise.all([master.ready(), slave.ready()]).then(() => {
-            setTimeout(() => {
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.display = 'none', 500);
-                playBtn.disabled = false;
-                playBtn.innerText = "Play Both";
-                document.getElementById('fsTop').disabled = false;
-                document.getElementById('fsBottom').disabled = false;
-                document.getElementById('m-status').innerText = "Online";
-                document.getElementById('s-status').innerText = "Online";
-            }, 800);
+            playBtn.disabled = false;
+            view360Btn.disabled = false;
+            playBtn.innerText = "Play Master";
         });
 
-        // RE-ENGINEERED PLAYBACK ENGINE
-        playBtn.addEventListener('click', async () => {
+        // Toggle Play/Pause
+        playBtn.addEventListener('click', () => {
             if (!isPlaying) {
-                try {
-                    // 1. Force the Master to unmute first (as part of the click)
-                    await master.setMuted(false);
-                    await master.setVolume(1);
-                    
-                    // 2. Play Master & Slave simultaneously
-                    const results = await Promise.all([master.play(), slave.play()]);
-                    
-                    playBtn.innerText = "Pause Both";
-                    isPlaying = true;
-                    statusMsg.innerText = "";
-                } catch (err) {
-                    console.error("Playback error:", err);
-                    statusMsg.innerText = "Browser blocked audio. Try clicking the TOP video once.";
-                    // Attempt muted fallback to at least get visuals moving
-                    master.setMuted(true);
-                    master.play();
-                    slave.play();
-                }
+                // To clear browser security, we trigger both
+                master.play();
+                slave.play();
+                playBtn.innerText = "Pause";
+                isPlaying = true;
             } else {
                 master.pause();
                 slave.pause();
-                playBtn.innerText = "Play Both";
+                playBtn.innerText = "Play Master";
                 isPlaying = false;
             }
         });
 
-        // Standard Sync Logic
-        master.on('timeupdate', (data) => {
-            slave.getCurrentTime().then(sTime => {
-                if (Math.abs(data.seconds - sTime) > 0.35) slave.setCurrentTime(data.seconds);
+        // The 360 Magic Button
+        view360Btn.addEventListener('click', () => {
+            // First, ensure they are perfectly synced
+            master.getCurrentTime().then(t => {
+                slave.setCurrentTime(t).then(() => {
+                    // Request Fullscreen on the hidden iframe
+                    if (sIframe.requestFullscreen) sIframe.requestFullscreen();
+                    else if (sIframe.webkitRequestFullscreen) sIframe.webkitRequestFullscreen();
+                });
             });
         });
 
-        master.on('seeked', (data) => slave.setCurrentTime(data.seconds));
+        // Precision Syncing (runs in background)
+        master.on('timeupdate', (data) => {
+            slave.getCurrentTime().then(sTime => {
+                if (Math.abs(data.seconds - sTime) > 0.3) {
+                    slave.setCurrentTime(data.seconds);
+                }
+            });
+        });
 
-        // Fullscreen Handling
-        const goFullscreen = (el) => {
-            if (el.requestFullscreen) el.requestFullscreen();
-            else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-        };
-        document.getElementById('fsTop').addEventListener('click', () => goFullscreen(mIframe));
-        document.getElementById('fsBottom').addEventListener('click', () => goFullscreen(sIframe));
+        // Monitor Fullscreen Exit
+        document.addEventListener('fullscreenchange', handleExit);
+        document.addEventListener('webkitfullscreenchange', handleExit);
+
+        function handleExit() {
+            // If we are no longer in fullscreen, make sure master is at the same time
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                slave.getCurrentTime().then(t => {
+                    master.setCurrentTime(t);
+                });
+            }
+        }
     </script>
 </body>
 </html>
