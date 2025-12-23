@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cinematic 360 Experience</title>
+    <title>360 Experience</title>
     <style>
         :root { --vimeo-blue: #00adef; --bg-dark: #0a0a0a; }
         body {
@@ -15,29 +15,24 @@
         .master-wrapper {
             width: 90%; max-width: 800px; background: #000;
             border-radius: 8px; overflow: hidden; position: relative;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-            z-index: 10;
         }
 
         .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; }
         iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
-        /* Slave stays active but tucked away */
+        /* Slave is off-screen but ready */
         #slave-iframe {
-            position: absolute;
-            left: -9999px; 
-            width: 640px; height: 360px;
-            visibility: visible;
+            position: absolute; left: -9999px; width: 640px; height: 360px;
         }
 
-        .controls { margin-top: 30px; display: flex; gap: 20px; z-index: 20; }
+        .controls { margin-top: 30px; display: flex; gap: 20px; }
         
         button {
             padding: 18px 35px; border-radius: 50px; font-weight: bold;
             cursor: pointer; transition: 0.2s; text-transform: uppercase; border: none;
         }
 
-        #playBtn { background: var(--vimeo-blue); color: white; }
+        #playBtn { background: var(--vimeo-blue); color: white; min-width: 200px; }
         #view360Btn { background: #fff; color: #000; }
         button:disabled { opacity: 0.2; cursor: not-allowed; }
     </style>
@@ -47,17 +42,17 @@
     <div class="master-wrapper">
         <div class="video-ratio">
             <iframe id="master-iframe" 
-                src="https://player.vimeo.com/video/1148671786?api=1&title=0&byline=0&portrait=0" 
+                src="https://player.vimeo.com/video/1148671786?api=1" 
                 allow="autoplay; fullscreen"></iframe>
         </div>
     </div>
 
     <iframe id="slave-iframe" 
-        src="https://player.vimeo.com/video/1141863363?api=1&muted=1&title=0&byline=0&portrait=0" 
+        src="https://player.vimeo.com/video/1141863363?api=1&muted=1" 
         allow="autoplay; fullscreen; vr"></iframe>
 
     <div class="controls">
-        <button id="playBtn" disabled>Loading...</button>
+        <button id="playBtn" disabled>Loading Players...</button>
         <button id="view360Btn" disabled>Full 360 View</button>
     </div>
 
@@ -69,71 +64,70 @@
         const slave = new Vimeo.Player(sIframe);
         const playBtn = document.getElementById('playBtn');
         const view360Btn = document.getElementById('view360Btn');
+        
         let isPlaying = false;
 
         // Initialize
         Promise.all([master.ready(), slave.ready()]).then(() => {
             playBtn.disabled = false;
             view360Btn.disabled = false;
-            playBtn.innerText = "Play Experience";
+            playBtn.innerText = "START EXPERIENCE";
         });
 
-        // THE FIX: "Mute-Play-Unmute" Sequence
-        playBtn.addEventListener('click', async () => {
+        // PRIMARY PLAYBACK ENGINE
+        playBtn.addEventListener('click', function() {
             if (!isPlaying) {
-                try {
-                    // Step 1: Mute Master so browser allows the Play command
-                    await master.setMuted(true);
-                    
-                    // Step 2: Trigger both plays
-                    await Promise.all([master.play(), slave.play()]);
-                    
-                    // Step 3: Unmute Master now that it is already moving
-                    await master.setMuted(false);
-                    await master.setVolume(1);
-
-                    playBtn.innerText = "Pause";
+                // 1. Trigger Master Play IMMEDIATELY (Direct user-to-audio link)
+                master.play().then(() => {
+                    // 2. Only after Master starts, trigger the Muted Slave
+                    slave.play();
+                    playBtn.innerText = "PAUSE";
                     isPlaying = true;
-                } catch (err) {
-                    console.error("Playback Blocked:", err);
-                    // Final Fallback: Play just the Master to get user focus
-                    master.play();
-                }
+                }).catch(err => {
+                    // Fallback: If browser is still angry, play Master muted first
+                    master.setMuted(true).then(() => {
+                        master.play();
+                        slave.play();
+                        playBtn.innerText = "UNMUTE & START";
+                    });
+                });
             } else {
                 master.pause();
                 slave.pause();
-                playBtn.innerText = "Play Experience";
+                playBtn.innerText = "START EXPERIENCE";
                 isPlaying = false;
             }
         });
 
-        // SYNC MASTER -> SLAVE
+        // SYNC LOGIC: Slave follows Master
         master.on('play', () => {
             slave.play();
             isPlaying = true;
-            playBtn.innerText = "Pause";
+            playBtn.innerText = "PAUSE";
         });
 
         master.on('pause', () => {
             slave.pause();
             isPlaying = false;
-            playBtn.innerText = "Play Experience";
+            playBtn.innerText = "START EXPERIENCE";
         });
 
-        // 360 BUTTON LOGIC
+        // 360 TRANSITION
         view360Btn.addEventListener('click', () => {
             master.getCurrentTime().then(t => {
                 slave.setCurrentTime(t).then(() => {
-                    const requestMethod = sIframe.requestFullscreen || sIframe.webkitRequestFullscreen;
-                    if (requestMethod) requestMethod.call(sIframe);
+                    const req = sIframe.requestFullscreen || sIframe.webkitRequestFullscreen;
+                    if (req) req.call(sIframe);
                 });
             });
         });
 
-        // BACKGROUND TIME SYNC
+        // PRECISION TIME SYNC
         master.on('timeupdate', (data) => {
-            slave.getCurrentTime().then(sT => {
-                if (Math.abs(data.seconds - sT) > 0.5) slave.setCurrentTime(data.seconds);
+            slave.getCurrentTime().then(sTime => {
+                if (Math.abs(data.seconds - sTime) > 0.4) {
+                    slave.setCurrentTime(data.seconds);
+                }
             });
         });
     </script>
