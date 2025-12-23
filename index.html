@@ -1,135 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360 Cinematic Sync</title>
-    <style>
-        :root { --vimeo-blue: #00adef; --bg-dark: #0f0f0f; }
-        body {
-            background-color: var(--bg-dark); color: white;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 100vh; margin: 0; font-family: sans-serif;
-        }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Vimeo Sync Player + 360 Modal</title>
 
-        #player-container {
-            width: 85%; max-width: 850px; aspect-ratio: 16 / 9;
-            background: #000; border-radius: 8px; overflow: hidden;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
+<!-- Vimeo Player API -->
+<script src="https://player.vimeo.com/api/player.js"></script>
 
-        #slave-modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.98);
-            display: none; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000;
-        }
-        .modal-content { width: 90%; max-width: 1100px; position: relative; }
-        .close-btn {
-            position: absolute; top: -50px; right: 0;
-            background: #ff3b30; color: white; border: none;
-            padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;
-        }
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #111;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+  }
 
-        .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; background: #000; }
-        .video-ratio iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+  #primary-container {
+    margin-bottom: 20px;
+  }
 
-        .controls { margin-top: 30px; display: flex; gap: 15px; }
-        button {
-            padding: 16px 32px; font-size: 14px; font-weight: bold;
-            cursor: pointer; border: none; border-radius: 50px;
-            text-transform: uppercase; transition: 0.2s;
-        }
-        #masterBtn { background: var(--vimeo-blue); color: white; min-width: 180px; }
-        #view360Btn { background: white; color: black; }
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
-    </style>
+  button {
+    padding: 10px 18px;
+    margin: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+  }
+
+  #playPauseBtn {
+    background: #4caf50;
+    color: white;
+  }
+
+  #open360Btn {
+    background: #2196f3;
+    color: white;
+  }
+
+  /* Modal */
+  .modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+  }
+
+  .modal-content {
+    position: relative;
+    margin: 4% auto;
+    width: 80%;
+    max-width: 1000px;
+    background: #000;
+    padding: 20px;
+    border-radius: 8px;
+  }
+
+  .close {
+    position: absolute;
+    top: 10px;
+    right: 20px;
+    font-size: 32px;
+    color: white;
+    cursor: pointer;
+  }
+</style>
 </head>
+
 <body>
 
-    <div id="player-container"></div>
+<h2>Vimeo Player with 360 Modal Sync</h2>
 
-    <div id="slave-modal">
-        <div class="modal-content">
-            <button class="close-btn" id="closeBtn">CLOSE 360 VIEW</button>
-            <div class="video-ratio" id="slave-holder"></div>
-        </div>
-    </div>
+<!-- Primary Video -->
+<div id="primary-container">
+  <iframe
+    id="primary-video"
+    src="https://player.vimeo.com/video/1148671786?h=000000&api=1&player_id=primary-video"
+    width="640"
+    height="360"
+    frameborder="0"
+    allow="autoplay; fullscreen"
+    allowfullscreen>
+  </iframe>
+</div>
 
-    <div class="controls">
-        <button id="masterBtn" disabled>Loading...</button>
-        <button id="view360Btn" disabled>Full 360 View</button>
-    </div>
+<!-- Controls -->
+<button id="playPauseBtn">Play/Pause</button>
+<button id="open360Btn">Full 360 View</button>
 
-    <script src="https://player.vimeo.com/api/player.js"></script>
-    <script>
-        // Master initialized normally
-        const master = new Vimeo.Player('player-container', { id: 1148671786, responsive: true });
-        
-        // Slave initialized inside the modal holder immediately, muted
-        const slave = new Vimeo.Player('slave-holder', { id: 1141863363, responsive: true, muted: true });
-        
-        const masterBtn = document.getElementById('masterBtn');
-        const view360Btn = document.getElementById('view360Btn');
-        const slaveModal = document.getElementById('slave-modal');
+<!-- Modal -->
+<div id="modal" class="modal">
+  <div class="modal-content">
+    <span id="closeModal" class="close">&times;</span>
 
-        let isPlaying = false;
-        let lastSyncTime = 0;
+    <!-- Secondary 360 Video -->
+    <iframe
+      id="secondary-video"
+      src="https://player.vimeo.com/video/1141863363?h=000000&api=1&player_id=secondary-video"
+      width="800"
+      height="450"
+      frameborder="0"
+      allow="autoplay; fullscreen"
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
 
-        Promise.all([master.ready(), slave.ready()]).then(() => {
-            masterBtn.disabled = false;
-            view360Btn.disabled = false;
-            masterBtn.innerText = "Start Experience";
-        });
+<script>
+// Initialize Vimeo players
+const primaryPlayer = new Vimeo.Player("primary-video");
+const secondaryPlayer = new Vimeo.Player("secondary-video");
 
-        masterBtn.onclick = function() {
-            master.getPaused().then(paused => {
-                if (paused) {
-                    // Start Master first. Only start slave if master succeeds.
-                    master.play().then(() => {
-                        slave.play();
-                        isPlaying = true;
-                    }).catch(() => {
-                        // Fallback: Mute and play if browser blocks sound
-                        master.setMuted(true);
-                        master.play();
-                        slave.play();
-                    });
-                } else {
-                    master.pause();
-                    slave.pause();
-                }
-            });
-        };
+// Buttons
+const playPauseBtn = document.getElementById("playPauseBtn");
+const open360Btn = document.getElementById("open360Btn");
+const modal = document.getElementById("modal");
+const closeModal = document.getElementById("closeModal");
 
-        // Throttled Sync: Only checks every 1000ms (1 second) to prevent crashing
-        master.on('timeupdate', (data) => {
-            const now = Date.now();
-            if (now - lastSyncTime > 1000) { 
-                slave.getCurrentTime().then(sTime => {
-                    if (Math.abs(data.seconds - sTime) > 0.8) {
-                        slave.setCurrentTime(data.seconds);
-                    }
-                });
-                lastSyncTime = now;
-            }
-        });
+// Play/Pause toggle
+playPauseBtn.addEventListener("click", async () => {
+  const isPaused = await primaryPlayer.getPaused();
+  isPaused ? primaryPlayer.play() : primaryPlayer.pause();
+});
 
-        // Modal Logic
-        view360Btn.onclick = function() {
-            master.getCurrentTime().then(t => {
-                slave.setCurrentTime(t);
-                slaveModal.style.display = 'flex';
-            });
-        };
+// Open 360 modal
+open360Btn.addEventListener("click", async () => {
+  const currentTime = await primaryPlayer.getCurrentTime();
 
-        document.getElementById('closeBtn').onclick = function() {
-            slaveModal.style.display = 'none';
-        };
+  // Pause primary
+  primaryPlayer.pause();
 
-        // UI Listeners
-        master.on('play', () => { masterBtn.innerText = "Pause Experience"; });
-        master.on('pause', () => { masterBtn.innerText = "Resume Experience"; });
-    </script>
+  // Sync secondary video
+  await secondaryPlayer.setCurrentTime(currentTime);
+
+  // Show modal
+  modal.style.display = "block";
+
+  // Play 360 video
+  secondaryPlayer.play();
+});
+
+// Close modal
+closeModal.addEventListener("click", async () => {
+  modal.style.display = "none";
+
+  // Get where the 360 video ended
+  const endTime = await secondaryPlayer.getCurrentTime();
+
+  // Stop 360 video
+  secondaryPlayer.pause();
+
+  // Resume primary at same time
+  await primaryPlayer.setCurrentTime(endTime);
+  primaryPlayer.play();
+});
+</script>
+
 </body>
 </html>
