@@ -12,14 +12,12 @@
             justify-content: center; min-height: 100vh; margin: 0; font-family: sans-serif;
         }
 
-        /* Master Container */
         #player-container {
             width: 85%; max-width: 850px; aspect-ratio: 16 / 9;
             background: #000; border-radius: 8px; overflow: hidden;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
-        /* Modal / Popup Styles */
         #slave-modal {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.98);
@@ -33,9 +31,8 @@
             padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;
         }
 
-        /* Off-screen Slave (Keeps it "warm" for instant loading) */
-        #slave-container { position: absolute; left: -9999px; width: 640px; height: 360px; }
-        #slave-modal #slave-container { position: static; width: 100%; height: auto; aspect-ratio: 16/9; }
+        .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; background: #000; }
+        .video-ratio iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
         .controls { margin-top: 30px; display: flex; gap: 15px; }
         button {
@@ -53,13 +50,10 @@
     <div id="player-container"></div>
 
     <div id="slave-modal">
-        <div class="modal-content" id="modal-content-area">
+        <div class="modal-content">
             <button class="close-btn" id="closeBtn">CLOSE 360 VIEW</button>
-            </div>
-    </div>
-
-    <div id="slave-storage">
-        <div id="slave-container"></div>
+            <div class="video-ratio" id="slave-holder"></div>
+        </div>
     </div>
 
     <div class="controls">
@@ -69,70 +63,73 @@
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
+        // Master initialized normally
         const master = new Vimeo.Player('player-container', { id: 1148671786, responsive: true });
-        const slave = new Vimeo.Player('slave-container', { id: 1141863363, responsive: true, muted: true });
+        
+        // Slave initialized inside the modal holder immediately, muted
+        const slave = new Vimeo.Player('slave-holder', { id: 1141863363, responsive: true, muted: true });
         
         const masterBtn = document.getElementById('masterBtn');
         const view360Btn = document.getElementById('view360Btn');
         const slaveModal = document.getElementById('slave-modal');
-        const slaveContainer = document.getElementById('slave-container');
-        const modalArea = document.getElementById('modal-content-area');
-        const slaveStorage = document.getElementById('slave-storage');
 
-        // Init
+        let isPlaying = false;
+        let lastSyncTime = 0;
+
         Promise.all([master.ready(), slave.ready()]).then(() => {
             masterBtn.disabled = false;
             view360Btn.disabled = false;
             masterBtn.innerText = "Start Experience";
         });
 
-        // 1. MASTER BUTTON TOGGLE
         masterBtn.onclick = function() {
             master.getPaused().then(paused => {
                 if (paused) {
-                    master.play().catch(() => { master.setMuted(true); master.play(); });
+                    // Start Master first. Only start slave if master succeeds.
+                    master.play().then(() => {
+                        slave.play();
+                        isPlaying = true;
+                    }).catch(() => {
+                        // Fallback: Mute and play if browser blocks sound
+                        master.setMuted(true);
+                        master.play();
+                        slave.play();
+                    });
                 } else {
                     master.pause();
+                    slave.pause();
                 }
             });
         };
 
-        // 2. HEARTBEAT SYNC (Slave follows Master)
-        master.on('play', () => { 
-            slave.play(); 
-            masterBtn.innerText = "Pause Experience";
-        });
-        
-        master.on('pause', () => { 
-            slave.pause(); 
-            masterBtn.innerText = "Resume Experience";
-        });
-
+        // Throttled Sync: Only checks every 1000ms (1 second) to prevent crashing
         master.on('timeupdate', (data) => {
-            slave.getCurrentTime().then(sTime => {
-                if (Math.abs(data.seconds - sTime) > 0.5) {
-                    slave.setCurrentTime(data.seconds);
-                }
-            });
+            const now = Date.now();
+            if (now - lastSyncTime > 1000) { 
+                slave.getCurrentTime().then(sTime => {
+                    if (Math.abs(data.seconds - sTime) > 0.8) {
+                        slave.setCurrentTime(data.seconds);
+                    }
+                });
+                lastSyncTime = now;
+            }
         });
 
-        // 3. MODAL LOGIC (The "Time-Snap" Transition)
+        // Modal Logic
         view360Btn.onclick = function() {
             master.getCurrentTime().then(t => {
-                // Snap slave to master's time
-                slave.setCurrentTime(t).then(() => {
-                    // Move the actual player element into the modal
-                    modalArea.appendChild(slaveContainer);
-                    slaveModal.style.display = 'flex';
-                });
+                slave.setCurrentTime(t);
+                slaveModal.style.display = 'flex';
             });
         };
 
         document.getElementById('closeBtn').onclick = function() {
-            // Move player back to storage and hide modal
-            slaveStorage.appendChild(slaveContainer);
             slaveModal.style.display = 'none';
         };
+
+        // UI Listeners
+        master.on('play', () => { masterBtn.innerText = "Pause Experience"; });
+        master.on('pause', () => { masterBtn.innerText = "Resume Experience"; });
     </script>
 </body>
 </html>
