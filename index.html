@@ -19,13 +19,19 @@
 
   h2 { margin-bottom: 20px; }
 
+  /* Video wrapper starts hidden until aspect ratio is known */
   .video-wrapper {
     position: relative;
-    padding-bottom: 56.25%;
     height: 0;
     width: 100%;
     max-width: 900px;
     margin: 0 auto 20px auto;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+
+  .video-wrapper.ready {
+    opacity: 1;
   }
 
   .video-wrapper iframe {
@@ -35,6 +41,7 @@
     height: 100%;
   }
 
+  /* Controls */
   .controls {
     display: flex;
     justify-content: center;
@@ -56,6 +63,7 @@
 
   #playPauseBtn { background: #4caf50; color: white; }
   #open360Btn { background: #2196f3; color: white; }
+  #muteBtn { background: #666; color: white; }
 
   .volume-container {
     display: flex;
@@ -68,6 +76,7 @@
     cursor: pointer;
   }
 
+  /* Modal */
   .modal {
     opacity: 0;
     pointer-events: none;
@@ -120,6 +129,7 @@
 
   .close { font-size: 26px; }
 
+  /* Spinner */
   .spinner {
     position: absolute;
     top: 50%;
@@ -150,7 +160,8 @@
 
 <h2>Vimeo Player with 360 Modal Sync</h2>
 
-<div class="video-wrapper">
+<!-- Primary Video -->
+<div id="primaryWrapper" class="video-wrapper">
   <iframe
     id="primary-video"
     src="https://player.vimeo.com/video/1148671786?h=000000&api=1&player_id=primary-video"
@@ -159,16 +170,19 @@
   </iframe>
 </div>
 
+<!-- Controls -->
 <div class="controls">
   <button id="playPauseBtn">Play</button>
   <button id="open360Btn">Full 360 View</button>
+  <button id="muteBtn">Mute</button>
 
   <div class="volume-container">
     <label for="volumeSlider">Volume</label>
-    <input id="volumeSlider" type="range" min="0" max="100" value="50">
+    <input id="volumeSlider" type="range" min="0" max="100" value="90">
   </div>
 </div>
 
+<!-- Modal -->
 <div id="modal" class="modal">
   <div class="modal-content">
     <div class="modal-header">
@@ -176,7 +190,7 @@
       <button id="closeModal" class="close">&times;</button>
     </div>
 
-    <div class="video-wrapper">
+    <div id="secondaryWrapper" class="video-wrapper">
       <div id="spinner" class="spinner"></div>
 
       <iframe
@@ -190,46 +204,80 @@
 </div>
 
 <script>
+/* Players */
 const primaryPlayer = new Vimeo.Player("primary-video");
 const secondaryPlayer = new Vimeo.Player("secondary-video");
 
+/* Elements */
+const primaryWrapper = document.getElementById("primaryWrapper");
+const secondaryWrapper = document.getElementById("secondaryWrapper");
 const playPauseBtn = document.getElementById("playPauseBtn");
 const open360Btn = document.getElementById("open360Btn");
+const muteBtn = document.getElementById("muteBtn");
 const modal = document.getElementById("modal");
 const closeModal = document.getElementById("closeModal");
 const returnBtn = document.getElementById("returnBtn");
 const spinner = document.getElementById("spinner");
 const volumeSlider = document.getElementById("volumeSlider");
 
-/* Set initial volume AFTER user gesture */
+/* Initial volume */
 let userInteracted = false;
+let muted = false;
+let initialVolume = 0.9;
+
+/* Apply initial volume */
+primaryPlayer.setVolume(initialVolume);
+secondaryPlayer.setVolume(initialVolume);
+
+/* Dynamic aspect ratio detection */
+async function applyAspectRatio(player, wrapper) {
+  const w = await player.getVideoWidth();
+  const h = await player.getVideoHeight();
+  const ratio = (h / w) * 100;
+  wrapper.style.paddingBottom = ratio + "%";
+  wrapper.classList.add("ready");
+}
+
+/* Detect aspect ratios once videos load */
+primaryPlayer.on("loaded", () => applyAspectRatio(primaryPlayer, primaryWrapper));
+secondaryPlayer.on("loaded", () => applyAspectRatio(secondaryPlayer, secondaryWrapper));
 
 /* Shared volume control */
 volumeSlider.addEventListener("input", () => {
   const vol = volumeSlider.value / 100;
   primaryPlayer.setVolume(vol);
   secondaryPlayer.setVolume(vol);
+  if (vol > 0) {
+    muted = false;
+    muteBtn.textContent = "Mute";
+  }
 });
 
-/* Update button text */
+/* Mute / Unmute */
+muteBtn.addEventListener("click", async () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? "Unmute" : "Mute";
+
+  const vol = muted ? 0 : volumeSlider.value / 100;
+  primaryPlayer.setVolume(vol);
+  secondaryPlayer.setVolume(vol);
+});
+
+/* Update Play/Pause button */
 primaryPlayer.on("play", () => playPauseBtn.textContent = "Pause");
 primaryPlayer.on("pause", () => playPauseBtn.textContent = "Play");
 
-/* Play/Pause toggle with audio enabled */
+/* Play/Pause toggle */
 playPauseBtn.addEventListener("click", async () => {
   const paused = await primaryPlayer.getPaused();
 
   if (!userInteracted) {
     userInteracted = true;
-    const vol = volumeSlider.value / 100;
+    const vol = muted ? 0 : volumeSlider.value / 100;
     await primaryPlayer.setVolume(vol);
   }
 
-  if (paused) {
-    primaryPlayer.play();
-  } else {
-    primaryPlayer.pause();
-  }
+  paused ? primaryPlayer.play() : primaryPlayer.pause();
 });
 
 /* Open modal */
@@ -249,7 +297,7 @@ secondaryPlayer.on("play", () => {
   setTimeout(() => spinner.classList.add("hidden"), 300);
 });
 
-/* Fade-out close function */
+/* Fade-out close */
 async function closeModalAction() {
   modal.classList.remove("show");
   modal.classList.add("fade-out");
@@ -266,7 +314,7 @@ async function closeModalAction() {
   }, 400);
 }
 
-/* Buttons that close modal */
+/* Close buttons */
 closeModal.addEventListener("click", closeModalAction);
 returnBtn.addEventListener("click", closeModalAction);
 
