@@ -3,40 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>360 Experience - Sync Fixed</title>
+    <title>Cinematic 360 Experience</title>
     <style>
         :root { --vimeo-blue: #00adef; --bg-dark: #0a0a0a; }
         body {
             font-family: sans-serif; background-color: var(--bg-dark); color: white;
             margin: 0; display: flex; flex-direction: column; align-items: center;
-            justify-content: center; min-height: 100vh;
+            justify-content: center; min-height: 100vh; overflow: hidden;
         }
-        .master-wrapper { width: 90%; max-width: 800px; background: #000; border-radius: 8px; overflow: hidden; position: relative; }
+
+        /* Master Player Style */
+        .master-wrapper {
+            width: 90%; max-width: 850px; background: #000;
+            border-radius: 12px; overflow: hidden; position: relative;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+        }
         .video-ratio { position: relative; padding-bottom: 56.25%; height: 0; }
         iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
-        #slave-iframe { position: absolute; left: -9999px; width: 300px; height: 150px; }
-        
-        .controls { margin-top: 30px; display: flex; gap: 20px; flex-direction: column; align-items: center; }
-        .btn-row { display: flex; gap: 15px; }
-        
+
+        /* Modal / Popup Styles */
+        #slave-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            display: none; flex-direction: column; align-items: center;
+            justify-content: center; z-index: 1000;
+        }
+        .modal-content { width: 95%; max-width: 1100px; position: relative; }
+        .close-btn {
+            position: absolute; top: -50px; right: 0;
+            background: white; color: black; border: none;
+            padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold;
+        }
+
+        /* Controls */
+        .controls { margin-top: 30px; display: flex; gap: 20px; }
         button {
-            padding: 18px 35px; border-radius: 50px; font-weight: bold;
-            cursor: pointer; text-transform: uppercase; border: none; transition: 0.2s;
+            padding: 16px 32px; border-radius: 50px; font-weight: bold;
+            cursor: pointer; transition: 0.3s; text-transform: uppercase; border: none;
         }
-        #playBtn { background: var(--vimeo-blue); color: white; min-width: 220px; }
-        #view360Btn { background: #fff; color: #000; }
-        
-        /* The Emergency Unmute Button */
-        #unmuteBtn { 
-            background: #ff3b30; color: white; display: none; margin-top: 15px;
-            animation: pulse 1.5s infinite;
-        }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        #playBtn { background: var(--vimeo-blue); color: white; min-width: 160px; }
+        #open360 { background: white; color: black; }
+        button:hover { transform: scale(1.05); }
+        button:disabled { opacity: 0.3; }
     </style>
 </head>
 <body>
@@ -47,68 +55,82 @@
         </div>
     </div>
 
-    <iframe id="slave-iframe" src="https://player.vimeo.com/video/1141863363?api=1&muted=1" allow="autoplay; fullscreen; vr"></iframe>
+    <div id="slave-modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="close360()">CLOSE & EXIT 360</button>
+            <div class="video-ratio">
+                <iframe id="slave-iframe" src="https://player.vimeo.com/video/1141863363?api=1&muted=1" allow="autoplay; fullscreen; vr"></iframe>
+            </div>
+        </div>
+    </div>
 
     <div class="controls">
-        <div class="btn-row">
-            <button id="playBtn">Start Experience</button>
-            <button id="view360Btn">Full 360 View</button>
-        </div>
-        <button id="unmuteBtn">Click for Sound</button>
+        <button id="playBtn" disabled>Synchronizing...</button>
+        <button id="open360" disabled>Launch 360 View</button>
     </div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
         const master = new Vimeo.Player(document.getElementById('master-iframe'));
         const slave = new Vimeo.Player(document.getElementById('slave-iframe'));
+        const modal = document.getElementById('slave-modal');
         const playBtn = document.getElementById('playBtn');
-        const view360Btn = document.getElementById('view360Btn');
-        const unmuteBtn = document.getElementById('unmuteBtn');
+        const open360Btn = document.getElementById('open360');
 
-        // 1. Initial Play Trigger
+        let isPlaying = false;
+
+        Promise.all([master.ready(), slave.ready()]).then(() => {
+            playBtn.disabled = false;
+            open360Btn.disabled = false;
+            playBtn.innerText = "Start Experience";
+        });
+
+        // Main Play Logic
         playBtn.onclick = function() {
-            // We tell both to play. Since they are muted, the browser MUST allow it.
-            master.play();
-            slave.play();
-            
-            // Now we try to unmute immediately
-            master.setMuted(false).then(() => {
-                // If this succeeds, audio is on.
-                unmuteBtn.style.display = 'none';
-                playBtn.innerText = "Pause Both";
-            }).catch(() => {
-                // If it fails, the browser blocked audio. Show the red button.
-                unmuteBtn.style.display = 'block';
-            });
+            if (!isPlaying) {
+                // Play first, then unmute. This is the most successful sequence.
+                master.play();
+                slave.play();
+                master.setMuted(false);
+                master.setVolume(1);
+                
+                playBtn.innerText = "Pause";
+                isPlaying = true;
+            } else {
+                master.pause();
+                slave.pause();
+                playBtn.innerText = "Start Experience";
+                isPlaying = false;
+            }
         };
 
-        // 2. The Manual Unmute (Browser-Approved Gesture)
-        unmuteBtn.onclick = function() {
-            master.setMuted(false);
-            master.setVolume(1);
-            unmuteBtn.style.display = 'none';
-        };
-
-        // 3. UI Sync
-        master.on('play', () => { slave.play(); playBtn.innerText = "Pause Both"; });
-        master.on('pause', () => { slave.pause(); playBtn.innerText = "Resume Both"; });
-
-        // 4. Full 360 Logic
-        view360Btn.onclick = function() {
+        // Modal Controls
+        open360Btn.onclick = function() {
             master.getCurrentTime().then(t => {
                 slave.setCurrentTime(t);
-                const sFrame = document.getElementById('slave-iframe');
-                const req = sFrame.requestFullscreen || sFrame.webkitRequestFullscreen;
-                if (req) req.call(sFrame);
+                modal.style.display = 'flex';
             });
         };
 
-        // 5. Background Time Sync
+        function close360() {
+            slave.getCurrentTime().then(t => {
+                master.setCurrentTime(t);
+                modal.style.display = 'none';
+            });
+        }
+
+        // Sync Logic
         master.on('timeupdate', (data) => {
             slave.getCurrentTime().then(sTime => {
-                if (Math.abs(data.seconds - sTime) > 0.4) slave.setCurrentTime(data.seconds);
+                if (Math.abs(data.seconds - sTime) > 0.4) {
+                    slave.setCurrentTime(data.seconds);
+                }
             });
         });
+
+        // Mirror Play/Pause
+        master.on('play', () => { slave.play(); isPlaying = true; });
+        master.on('pause', () => { slave.pause(); isPlaying = false; });
     </script>
 </body>
 </html>
