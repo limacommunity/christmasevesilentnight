@@ -25,121 +25,52 @@
 
         /* Loading Spinner Overlay */
         #loader-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg-dark);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            transition: opacity 0.5s ease;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; transition: opacity 0.5s ease;
         }
 
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid rgba(255, 255, 255, 0.1);
-            border-top: 5px solid var(--vimeo-blue);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-bottom: 15px;
+            width: 50px; height: 50px; border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top: 5px solid var(--vimeo-blue); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 15px;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Layout */
-        .container {
-            width: 100%;
-            max-width: 850px;
-        }
+        .container { width: 100%; max-width: 850px; }
 
         .player-card {
-            background: var(--panel-bg);
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            background: var(--panel-bg); padding: 15px; border-radius: 12px;
+            margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);
         }
 
         .header-meta {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            color: #888;
-            margin-bottom: 10px;
+            display: flex; justify-content: space-between; font-size: 11px;
+            text-transform: uppercase; letter-spacing: 1.5px; color: #888; margin-bottom: 10px;
         }
 
         .video-container {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-            height: 0;
-            background: #000;
-            border-radius: 6px;
-            overflow: hidden;
+            position: relative; padding-bottom: 56.25%; height: 0;
+            background: #000; border-radius: 6px; overflow: hidden;
         }
 
-        .video-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
-        }
+        .video-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
 
-        /* Controls */
-        .main-controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 10px;
-            flex-wrap: wrap;
-        }
+        .main-controls { display: flex; justify-content: center; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
 
-        button {
-            padding: 14px 28px;
-            border-radius: 8px;
-            font-weight: bold;
-            text-transform: uppercase;
-            cursor: pointer;
-            transition: 0.2s;
-            font-size: 13px;
-        }
+        button { padding: 14px 28px; border-radius: 8px; font-weight: bold; text-transform: uppercase; cursor: pointer; transition: 0.2s; font-size: 13px; }
 
-        #playPauseBtn {
-            background: var(--vimeo-blue);
-            color: white;
-            border: none;
-            min-width: 180px;
-        }
-
+        #playPauseBtn { background: var(--vimeo-blue); color: white; border: none; min-width: 180px; }
         #playPauseBtn:hover { background: #008cc2; transform: translateY(-2px); }
 
-        .fs-btn {
-            background: transparent;
-            color: #ccc;
-            border: 1px solid #444;
-        }
-
+        .fs-btn { background: transparent; color: #ccc; border: 1px solid #444; }
         .fs-btn:hover { border-color: white; color: white; }
 
         button:disabled { opacity: 0.3; cursor: not-allowed; }
 
-        #sync-log {
-            text-align: center;
-            font-size: 10px;
-            color: #555;
-            margin-top: 20px;
-        }
+        #status-msg { text-align: center; font-size: 12px; color: #ffab00; margin-top: 10px; height: 15px; }
     </style>
 </head>
 <body>
@@ -152,12 +83,12 @@
     <div class="container">
         <div class="player-card">
             <div class="header-meta">
-                <span>Master: Cinematic View (Audio)</span>
+                <span>Master: Cinematic View (Standard)</span>
                 <span id="m-status">Connecting...</span>
             </div>
             <div class="video-container">
                 <iframe id="master-iframe" 
-                    src="https://player.vimeo.com/video/1148671786?api=1&title=0&byline=0&portrait=0" 
+                    src="https://player.vimeo.com/video/1148671786?api=1&muted=1&title=0&byline=0&portrait=0" 
                     allow="autoplay; fullscreen" allowfullscreen></iframe>
             </div>
         </div>
@@ -176,50 +107,59 @@
 
         <div class="main-controls">
             <button id="playPauseBtn" disabled>Synchronizing...</button>
-            <button id="fsTop" class="fs-btn" disabled>Fullscreen Master</button>
-            <button id="fsBottom" class="fs-btn" disabled>Fullscreen Slave</button>
+            <button id="fsTop" class="fs-btn" disabled>Full Screen Master</button>
+            <button id="fsBottom" class="fs-btn" disabled>Full Screen Slave</button>
         </div>
-
-        <div id="sync-log">Synchronization Engine: Active (Threshold: 0.35s)</div>
+        <div id="status-msg"></div>
     </div>
 
     <script src="https://player.vimeo.com/api/player.js"></script>
     <script>
         const mIframe = document.getElementById('master-iframe');
         const sIframe = document.getElementById('slave-iframe');
-        
         const master = new Vimeo.Player(mIframe);
         const slave = new Vimeo.Player(sIframe);
-        
         const playBtn = document.getElementById('playPauseBtn');
+        const statusMsg = document.getElementById('status-msg');
         const overlay = document.getElementById('loader-overlay');
 
         let isPlaying = false;
 
-        // Hide spinner and enable UI when both are ready
         Promise.all([master.ready(), slave.ready()]).then(() => {
             setTimeout(() => {
                 overlay.style.opacity = '0';
                 setTimeout(() => overlay.style.display = 'none', 500);
-                
                 playBtn.disabled = false;
                 playBtn.innerText = "Play Both";
                 document.getElementById('fsTop').disabled = false;
                 document.getElementById('fsBottom').disabled = false;
                 document.getElementById('m-status').innerText = "Online";
                 document.getElementById('s-status').innerText = "Online";
-            }, 800); // Small delay for visual comfort
+            }, 800);
         });
 
-        // Toggle Playback
-        playBtn.addEventListener('click', () => {
+        // RE-ENGINEERED PLAYBACK ENGINE
+        playBtn.addEventListener('click', async () => {
             if (!isPlaying) {
-                // Critical: Play Master (Audio) first to clear browser security
-                master.play().then(() => {
-                    slave.play();
+                try {
+                    // 1. Force the Master to unmute first (as part of the click)
+                    await master.setMuted(false);
+                    await master.setVolume(1);
+                    
+                    // 2. Play Master & Slave simultaneously
+                    const results = await Promise.all([master.play(), slave.play()]);
+                    
                     playBtn.innerText = "Pause Both";
                     isPlaying = true;
-                });
+                    statusMsg.innerText = "";
+                } catch (err) {
+                    console.error("Playback error:", err);
+                    statusMsg.innerText = "Browser blocked audio. Try clicking the TOP video once.";
+                    // Attempt muted fallback to at least get visuals moving
+                    master.setMuted(true);
+                    master.play();
+                    slave.play();
+                }
             } else {
                 master.pause();
                 slave.pause();
@@ -228,39 +168,20 @@
             }
         });
 
-        // Listener for Video UI Play (Master drives Slave)
-        master.on('play', () => {
-            slave.play();
-            isPlaying = true;
-            playBtn.innerText = "Pause Both";
-        });
-
-        master.on('pause', () => {
-            slave.pause();
-            isPlaying = false;
-            playBtn.innerText = "Play Both";
-        });
-
-        // High-Frequency Drift Check
+        // Standard Sync Logic
         master.on('timeupdate', (data) => {
             slave.getCurrentTime().then(sTime => {
-                const diff = Math.abs(data.seconds - sTime);
-                if (diff > 0.35) {
-                    slave.setCurrentTime(data.seconds);
-                }
+                if (Math.abs(data.seconds - sTime) > 0.35) slave.setCurrentTime(data.seconds);
             });
         });
 
         master.on('seeked', (data) => slave.setCurrentTime(data.seconds));
 
-        // Fullscreen API Handling
+        // Fullscreen Handling
         const goFullscreen = (el) => {
             if (el.requestFullscreen) el.requestFullscreen();
             else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-            else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
-            else if (el.msRequestFullscreen) el.msRequestFullscreen();
         };
-
         document.getElementById('fsTop').addEventListener('click', () => goFullscreen(mIframe));
         document.getElementById('fsBottom').addEventListener('click', () => goFullscreen(sIframe));
     </script>
